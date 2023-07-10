@@ -1,0 +1,125 @@
+---
+title: "Complications Data Analysis"
+format: pdf
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+##  Background
+
+This data set contains information reports of laser eye surgery complications. Inspired by one of the solutions from the Kaggle link, I will attempt to show the number of surgeries with reported complications on a yearly basis as well as display the frequency of each keyword used to describe the complications.
+
+## Analysis 1
+
+Here, I will focus on showing the reported complications on a yearly basis.
+
+```{r}
+
+#Load relevant libraries
+library(tidyverse)
+
+#Load data
+df_raw <- read_csv("laser_eye_surgery_complications.csv")
+df <- df_raw
+
+#Get a list of the unique keywords
+kwords <- str_split(df$keywords, ";")
+kwords <- unique(trimws(unlist(kwords)))
+kwords <- kwords[!is.na(kwords)]
+kwords
+
+#Separate the data's datatime objects into year, month, and day columns
+df <- df |>
+  mutate(
+    day = day(date),
+    month = month(date),
+    year = year(date)
+  )
+
+#Group by year and get number of cases
+ycases <- df |> 
+  group_by(year) |> 
+  count()
+
+#Plot the number of cases by year
+plot1 <- ycases |>
+  ggplot(aes(x = year, y = n)) +
+  geom_point() +
+  geom_smooth() +
+  labs(
+    x = "Year", 
+    y = "Number of Cases Reported", 
+    title = "Yearly Cases Reported for Laser Eye Surgery Complications"
+  ) +
+  theme(
+    plot.title.position = "plot"
+  ) + 
+  theme_classic() +
+  coord_cartesian(expand = F, clip = "off") +
+  scale_x_continuous(breaks = seq(1997, 2019, by = 3))
+ggsave("Yearly Cases Reported for Laser Eye Surgery Complications.png")
+plot1
+
+
+```
+
+## Analysis 2
+
+Here, I will focus on showing the frequency of each keyword used to illustrate the complications. An important fact to note is that the total frequency of keywords in this code is 2687. This comes from counting all the times each non-NA keyword appeared and then summing them up.
+
+```{r}
+
+#Load libraries
+library(scales)
+
+#Get a list of the unique keywords
+kwords <- str_split(df$keywords, ";")
+kwords <- trimws(unlist(kwords))
+kwords <- kwords[!is.na(kwords)]
+df_kwords <- as.data.frame(table(kwords))
+df_kwords <- df_kwords |> 
+  rename(freq = Freq)
+df_kwords <- df_kwords |> 
+  mutate(prop = (freq / sum(freq)) * 100) |> 
+  arrange(desc(prop))
+df_kwords  
+
+plot2 <- df_kwords |> 
+  ggplot(aes(x = prop, y = reorder(kwords, prop))) +
+  geom_col() + 
+  labs(
+    x = "Frequency", 
+    y = "Complaint", 
+    title = "Complaint by Frequency"
+  ) +
+  geom_text(
+    aes(label = percent(round(freq / sum(freq), 3)), hjust = -0.1)
+  ) +
+  theme(
+    plot.title.position = "plot"
+  ) + 
+  theme_classic() +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 25))
+ggsave("Laser Eye Surgery Complaints by Frequency.png")
+plot2
+```
